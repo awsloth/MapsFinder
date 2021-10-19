@@ -1,6 +1,7 @@
 # Import libraries
 import requests
 import os
+import json
 
 # Get api key from environment variables
 API_KEY = os.environ['MAPS_KEY']
@@ -13,7 +14,7 @@ class APIReq:
         # Save api key as self.key
         self.key = {"key": key}
 
-    def place_by_name(self, name: str) -> dict:
+    def place_from_name(self, name: str) -> dict:
         """Function to find a place by its name as a string"""
         url = "https://maps.googleapis.com/maps/api/place/findplacefromtext/json"
 
@@ -73,3 +74,33 @@ class APIReq:
 
         return info
 
+    @staticmethod
+    def grab_info(info):
+        return {
+            "location": info['geometry']['location'],
+            "name": info['name'],
+            "place_id": info['place_id'],
+            }
+
+maps = APIReq(API_KEY)
+
+start = maps.place_from_name("Ilkley")['candidates'][0]['place_id']
+end = maps.place_from_name("Ben Rhydding")['candidates'][0]['place_id']
+
+start_info = maps.grab_info(maps.info_from_id(start)['result'])
+end_info = maps.grab_info(maps.info_from_id(end)['result'])
+
+places = []
+for place in maps.find_nearby(*start_info['location'].values(), 2500)['results']:
+    places.append(maps.grab_info(place))
+
+places = [place for place in places if place != start_info and place != end_info]
+
+info = {
+    "start": start_info,
+    "end": end_info,
+    "places": places
+}
+
+with open("info.json", "w") as f:
+    print(json.dumps(info), file=f)
