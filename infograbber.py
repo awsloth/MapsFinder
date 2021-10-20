@@ -58,13 +58,13 @@ class APIReq:
 
         return info
 
-    def dist_matrix(self, destinations: list, origins: list, mode: str) -> dict:
+    def dist_matrix(self, destinations: list, origins: list, mode: str = "walking") -> dict:
         """Function to find distance and times between points as a matrix"""
         url = "https://maps.googleapis.com/maps/api/distancematrix/json"
 
         params = {
-            "destinations": "|".join(destinations[:10]),
-            "origins": "|".join(origins[:10]),
+            "destinations": "|".join(destinations),
+            "origins": "|".join(origins),
             "mode": mode
         }
 
@@ -75,9 +75,9 @@ class APIReq:
         return info
 
     @staticmethod
-    def grab_info(info):
+    def grab_info(info: dict) -> dict:
         return {
-            "location": info['geometry']['location'],
+            "location": [*info['geometry']['location'].values()],
             "name": info['name'],
             "place_id": info['place_id'],
             }
@@ -91,7 +91,7 @@ start_info = maps.grab_info(maps.info_from_id(start)['result'])
 end_info = maps.grab_info(maps.info_from_id(end)['result'])
 
 places = []
-for place in maps.find_nearby(*start_info['location'].values(), 2500)['results']:
+for place in maps.find_nearby(*start_info['location'], 2500)['results'][:10]:
     places.append(maps.grab_info(place))
 
 places = [place for place in places if place != start_info and place != end_info]
@@ -102,5 +102,20 @@ info = {
     "places": places
 }
 
+place_ids = [f"place_id:{place['place_id']}" for place in places][:10]
+
+start_matrix = maps.dist_matrix(place_ids, [",".join(map(str, start_info["location"]))])
+inner_matrix = maps.dist_matrix(place_ids, place_ids)
+end_matrix = maps.dist_matrix([",".join(map(str, end_info["location"]))], place_ids)
+
+matrices = {
+    "start": start_matrix,
+    "inner": inner_matrix,
+    "end": end_matrix
+}
+
 with open("info.json", "w") as f:
     print(json.dumps(info), file=f)
+
+with open("matrix.json", "w") as f:
+    print(json.dumps(matrices), file=f)
